@@ -13,6 +13,9 @@ using Microsoft.Extensions.Options;
 
 using DatingApp.API.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 namespace DatingApp.API
 {
@@ -36,6 +39,25 @@ namespace DatingApp.API
                     .AllowAnyMethod()
                     .AllowAnyHeader();
             }));
+            services.AddScoped<IAuthRepository, AuthRepository>();
+            //IAuth will be injected in the controllers, and will get implementation from AuthRepository
+            //addScoped creates a single instance for each HTTP request, 
+            //but uses the same instance for other calls within the same web request
+            //addSingleton creates a single instance of the repository(will fail duting concurrent auth reqs)
+            //addTransient creates new instance for each new req., 
+            //suitable for lightweight stateless services, not for this case
+
+            services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer(options => {
+                    options.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuerSigningKey = true,
+                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes
+                            (Configuration.GetSection("AppSettings:Token").Value)),
+                        ValidateIssuer = false,
+                        ValidateAudience = false
+                    };
+                });
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -53,6 +75,7 @@ namespace DatingApp.API
 
             // app.UseHttpsRedirection();
             app.UseCors("MyPolicy");
+            app.UseAuthentication();
             app.UseMvc();
         }
     }
